@@ -44,11 +44,10 @@ def get_pictures():
 
 @app.route("/picture/<int:id>", methods=["GET"])
 def get_picture_by_id(id):
-    """Find and return picture by id"""
-    picture = next((p for p in data if p["id"] == id), None)
+    picture = next((pic for pic in data if pic["id"] == id), None)
     if picture:
-        return jsonify(picture), 200  # Başarıyla bulunduysa 200 OK
-    return jsonify({"error": "Picture not found"}), 404  # Bulunamadıysa 404
+        return jsonify(picture), 200
+    return jsonify({"message": "Picture not found"}), 404
 
 ######################################################################
 # CREATE A PICTURE
@@ -56,14 +55,21 @@ def get_picture_by_id(id):
 
 @app.route("/picture", methods=["POST"])
 def create_picture():
-    """Create a new picture entry"""
-    picture = request.get_json()
-    if "id" not in picture:
-        return jsonify({"Message": "Invalid data, 'id' field required"}), 400
-    if any(p["id"] == picture["id"] for p in data):
-        return jsonify({"Message": "picture with id 200 already present"}), 302
-    data.append(picture)
-    return jsonify(picture), 201
+    """Add a new picture"""
+    new_picture = request.get_json()
+
+    if not new_picture or "id" not in new_picture:
+        return jsonify({"Message": "Invalid input"}), 422  # "Message" anahtarını düzelttik
+
+    # Eğer ID zaten varsa 302 dönmeliyiz
+    for picture in data:
+        if picture["id"] == new_picture["id"]:
+            return jsonify({"Message": f"picture with id {new_picture['id']} already present"}), 302  # "Message" anahtarını düzelttik
+
+    data.append(new_picture)
+    return jsonify(new_picture), 201  # Yeni resmi tamamen döndürmeliyiz.
+
+
 
 ######################################################################
 # UPDATE A PICTURE
@@ -73,13 +79,14 @@ def create_picture():
 def update_picture(id):
     """Update an existing picture"""
     updated_data = request.get_json()
+    if "id" not in updated_data or updated_data["id"] != id:
+        return jsonify({"message": "ID mismatch or missing 'id'"}), 400
 
     for picture in data:
         if picture["id"] == id:
             picture.update(updated_data)
             return jsonify(picture), 200
-
-    return jsonify({"message": "resim bulunamadı"}), 404
+    return jsonify({"message": "Picture not found"}), 404
 
 ######################################################################
 # DELETE A PICTURE
@@ -87,12 +94,11 @@ def update_picture(id):
 
 @app.route("/picture/<int:id>", methods=["DELETE"])
 def delete_picture(id):
-    """Delete a picture from the database"""
+    """Delete a picture"""
     global data
-    for picture in data:
-        if picture["id"] == id:
-            data.remove(picture)
-            return "", 204  # No Content
+    original_length = len(data)
+    data = [pic for pic in data if pic["id"] != id]
 
-    return jsonify({"message": "resim bulunamadı"}), 404
-
+    if len(data) < original_length:
+        return "", 204  # 204 No Content döndürüyoruz
+    return jsonify({"message": "Picture not found"}), 404
